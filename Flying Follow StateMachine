@@ -1,0 +1,116 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using Pathfinding;
+
+public class ChargeFlyingState : State
+{
+    protected D_ChargeFlyingState stateData;
+
+    protected bool isPlayerInMinAggroRange;
+    protected bool isPlayerInMaxAggroRange;
+    Seeker seeker;
+    Path path;
+    Rigidbody2D rb;
+    public int currentWaypoint = 0;
+    protected bool reachedEndOfPath = false;
+
+
+        public ChargeFlyingState(Entity entity, FiniteStateMachine stateMachine, string animBoolName, D_ChargeFlyingState stateData) : base(entity, stateMachine, animBoolName)
+    {
+	this.stateData = stateData;
+    }
+
+    public override void Enter()
+    {
+	base.Enter();
+	
+	seeker = entity.GetComponent<Seeker>();
+	rb = entity.GetComponent<Rigidbody2D>();
+
+       	Follow();
+    }
+
+    public override void Exit()
+    {
+	base.Exit();
+    }
+
+    public override void LogicUpdate()
+    {
+	base.LogicUpdate();
+    }
+
+    public override void PhysicsUpdate()
+    {
+	base.PhysicsUpdate();
+
+	StartCoroutine ("UpdatePath");
+ 
+    }
+
+     public override void DoChecks()
+    {
+	base.DoChecks();
+
+	isPlayerInMinAggroRange = entity.CheckPlayerInMinAggroRangeFlying();
+	isPlayerInMaxAggroRange = entity.CheckPlayerInMaxAggroRangeFlying();
+
+    }
+
+     public virtual void Follow()
+     {
+    	
+        if(path == null)
+	    return;
+
+
+	if(currentWaypoint >= path.vectorPath.Count)
+	{
+	    reachedEndOfPath = true;
+	    return;
+	}
+	else
+	{
+	    reachedEndOfPath = false;
+	}
+
+	Vector2 direction = ((Vector2)path.vectorPath[currentWaypoint] - rb.position).normalized;
+	Vector2 force = direction * stateData.followSpeed * Time.deltaTime;
+
+	rb.AddForce(force);
+
+	float distance = Vector2.Distance(rb.position, path.vectorPath[currentWaypoint]);
+
+	if (distance < stateData.nextWaypointDistance)
+	{
+	    currentWaypoint++;
+	}
+
+	if(rb.velocity.x >= 0.01f)
+	{
+	    entity.Flip();
+	}
+    }
+
+    public void OnPathComplete(Path p)
+    {
+	if (!p.error)
+	{
+	    path = p;
+	    currentWaypoint = 0;
+	}
+    }
+
+    private IEnumerator UpdatePath()
+    {
+	while (stateMachine.currentState == this)
+	{
+	    if (seeker.IsDone())
+	    {
+		seeker.StartPath(entity.transform.position, stateData.followTarget.transform.position, OnPathComplete);
+	    }
+	    yield return new WaitForSeconds(.5f);
+	}
+    }
+}	
